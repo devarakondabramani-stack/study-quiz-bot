@@ -1,0 +1,600 @@
+{
+  "name": "My workflow",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "c8392a2b-7ef7-48cb-b221-2c6441e1f125",
+      "name": "Telegram Trigger",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.5,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "48fa726e-7d4b-44b5-be17-d24698288405",
+      "credentials": {
+        "telegramApi": {
+          "id": "kdk9nu1vW4tU0WAT",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "\nconst msg = $input.first().json.message || {};\nconst chatId = msg.chat && msg.chat.id;\nif (!chatId) return [];\nconst text = (msg.text || '').trim();\nconst doc = msg.document;\nconst st = $getWorkflowStaticData('global');\nif (!st.users) st.users = {};\nif (!st.users[chatId]) st.users[chatId] = {};\nconst u = st.users[chatId];\nconst out = (o) => [{ json: { chatId, ...o } }];\nconst reply = (t) => out({ route: 'reply', reply: t });\nconst EX = 'ACBDACBDACBDACBDACBD';\nconst HELP = 'Hey! 👋 I turn your study material into a 20-question MCQ quiz and email you your score.\\n\\n1) Send me your email address.\\n2) Send a PDF (or paste your notes as text).\\n3) I send the quiz. Reply with ALL answers in ONE message, like: ' + EX + '\\n\\nSend /start anytime to see this again.';\nif (text.startsWith('/start') || text.startsWith('/help')) return reply(HELP);\nif (/^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$/.test(text)) {\n  u.email = text.toLowerCase();\n  return reply('Email saved ✅ ' + u.email + '\\nNow send me a PDF, or paste your notes as text.');\n}\nif (doc) {\n  if (!u.email) return reply('First send me your email address (I email your score there). Then send the file again.');\n  const name = (doc.file_name || '').toLowerCase();\n  const mime = (doc.mime_type || '').toLowerCase();\n  if (!(name.endsWith('.pdf') || mime === 'application/pdf')) return reply('I can read PDF files only. For Word/PPT/TXT, copy the text and paste it here as a message.');\n  if ((doc.file_size || 0) > 10 * 1024 * 1024) return reply('That PDF is over 10 MB. Send a smaller one or paste the text.');\n  return out({ route: 'doc', source: 'file', fileId: doc.file_id });\n}\nif (text) {\n  if (u.quiz && /^[\\s\\d.,:;)\\-A-Da-d]+$/.test(text) && /[A-Da-d]/.test(text)) {\n    const letters = (text.replace(/\\d+/g, '').match(/[A-Da-d]/g) || []).map((c) => c.toUpperCase());\n    const n = u.quiz.length;\n    if (letters.length !== n) return reply('I counted ' + letters.length + ' answers but the quiz has ' + n + ' questions. Send all ' + n + ' letters again in ONE message, like: ' + EX.slice(0, n));\n    return out({ route: 'answers', letters });\n  }\n  if (text.length >= 300) {\n    if (!u.email) return reply('First send me your email address (I email your score there). Then paste your notes again.');\n    return out({ route: 'doc', source: 'text', rawText: text });\n  }\n  return reply(u.email ? 'Send a PDF, or paste at least a few paragraphs of notes (300+ characters). Send /start for help.' : 'Send your email address first. Send /start for help.');\n}\nreturn reply('I understand text and PDF files only 🙂 Send /start for help.');\n\n"
+      },
+      "id": "8fdeae85-1236-4d2c-a568-b88a94bb0fdf",
+      "name": "ROUTER",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "rules": {
+          "values": [
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "reply",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals"
+                    },
+                    "id": "ba7f0f93-ea95-4bdd-a051-39f952e5d06c"
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "reply"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "25a5ebe9-f33f-4029-9635-310f83eab642",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "doc",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "doc"
+            },
+            {
+              "conditions": {
+                "options": {
+                  "caseSensitive": true,
+                  "leftValue": "",
+                  "typeValidation": "strict",
+                  "version": 4
+                },
+                "conditions": [
+                  {
+                    "id": "d1734996-992c-4fb4-83e2-53a8290d1d4a",
+                    "leftValue": "={{ $json.route }}",
+                    "rightValue": "answers",
+                    "operator": {
+                      "type": "string",
+                      "operation": "equals",
+                      "name": "filter.operator.equals"
+                    }
+                  }
+                ],
+                "combinator": "and"
+              },
+              "renameOutput": true,
+              "outputKey": "answers"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "2ad5a3b3-5139-4af8-b454-84a8a17e8b59",
+      "name": "ROUTE",
+      "type": "n8n-nodes-base.switch",
+      "typeVersion": 3.5,
+      "position": [
+        448,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.reply }}",
+        "additionalFields": {}
+      },
+      "id": "89356ad0-8aaa-4e20-b451-43f71c8cf6aa",
+      "name": "send reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        672,
+        -112
+      ],
+      "webhookId": "0b2e915d-0e27-4eb7-9bad-c03f6189d7db",
+      "credentials": {
+        "telegramApi": {
+          "id": "kdk9nu1vW4tU0WAT",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "0660c3b2-487e-4e28-a2f0-e5f9f1841c55",
+              "leftValue": "={{ $json.source }}",
+              "rightValue": "file",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "b1d3d532-84c0-4997-8df7-9124cc91cc6c",
+      "name": "Is PDF",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        672,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "file",
+        "fileId": "={{ $json.fileId }}",
+        "additionalFields": {}
+      },
+      "id": "f1e4746f-dd33-45d0-a65f-16c3e491b8f6",
+      "name": "GET PDF",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        -96
+      ],
+      "webhookId": "3ff03760-4545-46b0-9adf-14974a666e12",
+      "credentials": {
+        "telegramApi": {
+          "id": "kdk9nu1vW4tU0WAT",
+          "name": "Telegram account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "pdf",
+        "options": {}
+      },
+      "id": "0b3558b7-8fa4-4203-abf0-10936e902b44",
+      "name": "Extract PDF",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.2,
+      "position": [
+        1120,
+        -96
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('ROUTER').first().json;\nconst j = $input.first().json || {};\nlet raw = r.source === 'text' ? (r.rawText || '') : (j.text || '');\nraw = String(raw).replace(/\\r/g, '').replace(/[ \\t]+/g, ' ').replace(/\\n{3,}/g, '\\n\\n').trim();\n\nif (raw.length < 300) {\n  return [{ json: { ok: false, chatId: r.chatId, reply: 'I could not read enough text from that (scanned or image-only PDFs have no text). Send a text-based PDF, or paste your notes as a message.' } }];\n}\n\nconst LIMIT = 9000, CH = 750;\nlet ctx = raw;\n\nif (raw.length > LIMIT) {\n  const chunks = [];\n  for (let i = 0; i < raw.length; i += CH) chunks.push(raw.slice(i, i + CH));\n  const take = Math.floor(LIMIT / CH);\n  const picked = [];\n  for (let k = 0; k < take; k++) picked.push(chunks[Math.floor((k * chunks.length) / take)]);\n  ctx = picked.join('\\n...\\n');\n}\n\nreturn [{ json: { ok: true, chatId: r.chatId, context: ctx } }];"
+      },
+      "id": "85d511ee-00dc-4a22-af98-eaf42007d39c",
+      "name": "Prep",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1344,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 4
+          },
+          "conditions": [
+            {
+              "id": "530e40f1-955f-45af-8d09-bf3363845ad3",
+              "leftValue": "={{ $json.ok }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0341c69d-9fc8-48dc-9ba5-a8bf146a0d47",
+      "name": "Enough text",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.4,
+      "position": [
+        1568,
+        -96
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=You are a strict exam-question writer. Using ONLY the study material below, write 10 multiple-choice questions that test the key ideas, spread across the whole material (beginning, middle and end).\nRules: exactly 4 options per question (A, B, C, D) with exactly one correct; spread correct answers evenly over A, B, C, D; plausible wrong options; no 'all of the above' or 'none of the above'; answerable from the material alone; 'why' is one short sentence (max 15 words) explaining the correct answer.\nOutput ONLY valid JSON with no markdown and no commentary, in exactly this shape:\n[{\"q\":\"...\",\"options\":{\"A\":\"...\",\"B\":\"...\",\"C\":\"...\",\"D\":\"...\"},\"answer\":\"B\",\"why\":\"...\"}]\nSTUDY MATERIAL:\n{{ $json.context }}",
+        "batching": {}
+      },
+      "id": "3b64e065-6291-40c3-bade-cb254a7a9814",
+      "name": "Make Quiz",
+      "type": "@n8n/n8n-nodes-langchain.chainLlm",
+      "typeVersion": 1.9,
+      "position": [
+        1792,
+        -192
+      ],
+      "retryOnFail": true,
+      "waitBetweenTries": 5000,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "model": "openai/gpt-oss-120b",
+        "options": {}
+      },
+      "id": "4efaa587-b3f1-4419-9ca3-17fdeedf8e1b",
+      "name": "Groq Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatGroq",
+      "typeVersion": 1,
+      "position": [
+        1840,
+        -64
+      ],
+      "credentials": {
+        "groqApi": {
+          "id": "qZIZVq2TfSeKuwHm",
+          "name": "Groq account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = $('Prep').first().json.chatId;\nconst fail = (t) => [{ json: { chatId, reply: t } }];\nconst esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nlet raw = $input.first().json.text;\nif (!raw || typeof raw !== 'string') return fail('The AI was busy (rate limit). Wait 1 minute, then send the document again.');\n\nraw = raw.replace(/\\x60{3}(json)?/gi, '').trim();\nlet arr;\n\ntry {\n  arr = JSON.parse(raw.slice(raw.indexOf('['), raw.lastIndexOf(']') + 1));\n} catch (e) {\n  return fail('I could not build the quiz this time. Please send the document again.');\n}\n\nconst L = ['A', 'B', 'C', 'D'];\nconst qs = [];\n\nfor (const x of (Array.isArray(arr) ? arr : [])) {\n  try {\n    const o = x.options;\n    const opts = Array.isArray(o) ? o.map(String) : L.map((k) => (o && o[k] != null ? String(o[k]) : ''));\n    if (opts.length !== 4 || opts.some((v) => !v.trim()) || !x.q) continue;\n\n    const a = String(x.answer || '').trim().toUpperCase().charAt(0);\n    if (!L.includes(a)) continue;\n\n    qs.push({\n      q: String(x.q).trim().slice(0, 400),\n      o: opts.map((s) => s.replace(/^[A-D][.)]\\s*/, '').trim().slice(0, 200)),\n      a,\n      why: String(x.why || '').trim().slice(0, 200)\n    });\n  } catch (e) {}\n}\n\nif (qs.length < 10) return fail('I could not make enough good questions from that. Try a longer, clearer document.');\n\nconst quiz = qs.slice(0, 20);\nconst st = $getWorkflowStaticData('global');\n\nif (!st.users) st.users = {};\nif (!st.users[chatId]) st.users[chatId] = {};\nst.users[chatId].quiz = quiz;\n\nconst n = quiz.length;\nconst msgs = ['📝 Quiz ready: ' + n + ' questions. Read them below, then reply with ALL answers in ONE message, like: ' + 'ACBDACBDACBDACBDACBD'.slice(0, n)];\n\nlet cur = '';\n\nquiz.forEach((x, i) => {\n  const b = (i + 1) + '. ' + esc(x.q) + '\\nA) ' + esc(x.o[0]) + '\\nB) ' + esc(x.o[1]) + '\\nC) ' + esc(x.o[2]) + '\\nD) ' + esc(x.o[3]);\n\n  if (cur && (cur + '\\n\\n' + b).length > 3500) {\n    msgs.push(cur);\n    cur = b;\n  } else {\n    cur = cur ? cur + '\\n\\n' + b : b;\n  }\n});\n\nif (cur) msgs.push(cur);\n\nreturn msgs.map((t) => ({ json: { chatId, reply: t } }));"
+      },
+      "id": "e863316d-07dc-4a66-9ec2-098dea3ec389",
+      "name": "Parse Quiz",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2160,
+        -192
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const r = $('ROUTER').first().json;\nconst chatId = r.chatId;\nconst letters = r.letters;\nconst u = $getWorkflowStaticData('global').users[chatId];\nconst quiz = u && u.quiz;\n\nif (!quiz || !Array.isArray(quiz)) {\n  return [{ json: { chatId, reply: 'I could not find your quiz. Please send your study material again.' } }];\n}\n\nconst n = quiz.length;\nconst esc = (s) => String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\n\nlet score = 0;\nconst wrong = [];\n\nquiz.forEach((x, i) => {\n  if (letters[i] === x.a) score++;\n  else wrong.push({\n    i: i + 1,\n    yours: letters[i],\n    right: x.a,\n    ans: x.o['ABCD'.indexOf(x.a)],\n    why: x.why\n  });\n});\n\nconst pct = Math.round((score / n) * 100);\nconst em = pct >= 80 ? '🏆' : pct >= 50 ? '👍' : '📚';\n\nlet tg = em + ' <b>Score: ' + score + '/' + n + ' (' + pct + '%)</b>\\n';\nlet mail = 'Your quiz score: ' + score + '/' + n + ' (' + pct + '%)\\n\\n';\n\nif (wrong.length) {\n  tg += '\\nReview:\\n';\n  mail += 'Questions to review:\\n\\n';\n} else {\n  tg += '\\nPerfect score! 🎉\\n';\n  mail += 'Perfect score! Well done.\\n';\n}\n\nfor (const w of wrong) {\n  tg += '\\n' + w.i + '. You: ' + w.yours + ' | Correct: ' + w.right + ') ' + esc(w.ans) + '\\n' + esc(w.why) + '\\n';\n  mail += w.i + '. Your answer: ' + w.yours + ' | Correct: ' + w.right + ') ' + w.ans + '\\n   ' + w.why + '\\n\\n';\n}\n\nif (tg.length > 3600) tg = tg.slice(0, tg.lastIndexOf('\\n', 3600)) + '\\n…';\n\ntg += '\\n📧 Emailing this to ' + esc(u.email || 'you') + ' (check Spam).\\nSend another PDF or notes for a new quiz.';\n\nreturn [{\n  json: {\n    chatId,\n    reply: tg,\n    email: u.email,\n    subject: 'Your quiz score: ' + score + '/' + n + ' (' + pct + '%)',\n    mail\n  }\n}];"
+      },
+      "id": "43641d37-9188-4bcd-9867-277b34be9194",
+      "name": "Grade",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        672,
+        112
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.reply }}",
+        "additionalFields": {
+          "parse_mode": "HTML"
+        }
+      },
+      "id": "2245505c-ca2b-48a8-b941-dd6edfc41d7b",
+      "name": "Send Score",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        896,
+        112
+      ],
+      "webhookId": "a134fb02-c2c8-4f6f-a9d7-9b634c0f8d54",
+      "credentials": {
+        "telegramApi": {
+          "id": "kdk9nu1vW4tU0WAT",
+          "name": "Telegram account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "fromEmail": "devarakondabramani@gmail.com",
+        "toEmail": "={{ $('Grade').first().json.email }}",
+        "subject": "={{ $('Grade').first().json.subject }}",
+        "emailFormat": "text",
+        "text": "={{ $('Grade').first().json.mail }}",
+        "options": {}
+      },
+      "id": "ca714ca3-5479-40b1-a8dd-8391a9318bf7",
+      "name": "Send Email",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        112
+      ],
+      "webhookId": "8ea3689b-c03c-4402-8aa8-00c67c5b9cfd",
+      "credentials": {
+        "smtp": {
+          "id": "5K6bFvwI7Mp9ZtmY",
+          "name": "SMTP account"
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Grade').first().json.chatId }}",
+        "text": "⚠️ Your score is above, but I could not send the email. Ask your instructor to check the SMTP credential.",
+        "additionalFields": {}
+      },
+      "id": "63060322-11d2-4dff-90c4-ac1ae6a1c98a",
+      "name": "Email Failed Notice",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        1264,
+        128
+      ],
+      "webhookId": "77cccf92-de00-494a-ba30-b9fa28226540",
+      "credentials": {
+        "telegramApi": {
+          "id": "kdk9nu1vW4tU0WAT",
+          "name": "Telegram account"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Telegram Trigger": {
+      "main": [
+        [
+          {
+            "node": "ROUTER",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROUTER": {
+      "main": [
+        [
+          {
+            "node": "ROUTE",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "ROUTE": {
+      "main": [
+        [
+          {
+            "node": "send reply",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Is PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Grade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is PDF": {
+      "main": [
+        [
+          {
+            "node": "GET PDF",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "GET PDF": {
+      "main": [
+        [
+          {
+            "node": "Extract PDF",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract PDF": {
+      "main": [
+        [
+          {
+            "node": "Prep",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prep": {
+      "main": [
+        [
+          {
+            "node": "Enough text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Enough text": {
+      "main": [
+        [
+          {
+            "node": "Make Quiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Make Quiz": {
+      "main": [
+        [
+          {
+            "node": "Parse Quiz",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Groq Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Make Quiz",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Parse Quiz": {
+      "main": [
+        [
+          {
+            "node": "send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grade": {
+      "main": [
+        [
+          {
+            "node": "Send Score",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Score": {
+      "main": [
+        [
+          {
+            "node": "Send Email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Email": {
+      "main": [
+        [
+          {
+            "node": "Email Failed Notice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": true,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "1da46f0d-1ede-43fa-960f-4731cfab815f",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "66a0454950d4ce7ed411e89848b89d28af76bd1175a3d1af4144a55696215eb9"
+  },
+  "nodeGroups": [],
+  "id": "vfxqTmEJ1l6EALRG",
+  "tags": []
+}
